@@ -156,6 +156,21 @@
 
   <section class="grid">
     <div class="card">
+      <h2>Подключение</h2>
+      <label for="apiBase">Адрес API</label>
+      <input
+        id="apiBase"
+        name="apiBase"
+        placeholder="https://example.com"
+        aria-label="Адрес API"
+      />
+      <p class="muted">
+        По умолчанию используется текущий домен. Если открываете страницу с GitHub Pages,
+        укажите URL сервера с запущенным backend.
+      </p>
+    </div>
+
+    <div class="card">
       <h2>Создать комнату</h2>
       <form id="hostForm">
         <label for="slots">Количество мест (4–12)</label>
@@ -217,15 +232,39 @@
     const statusBlock = document.getElementById('statusBlock');
     const codeInput = document.getElementById('code');
     const statusCodeInput = document.getElementById('statusCode');
+    const apiBaseInput = document.getElementById('apiBase');
 
-    const api = async (url, method = 'GET', body) => {
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: body ? JSON.stringify(body) : undefined,
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Неизвестная ошибка');
+    const savedApiBase = window.localStorage.getItem('mafiaApiBase');
+    apiBaseInput.value = savedApiBase || window.location.origin;
+
+    const getApiUrl = (path) => {
+      const base = (apiBaseInput.value || window.location.origin).trim().replace(/\/$/, '');
+      window.localStorage.setItem('mafiaApiBase', base);
+      return `${base}${path}`;
+    };
+
+    const api = async (path, method = 'GET', body) => {
+      const url = getApiUrl(path);
+      let res;
+      try {
+        res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: body ? JSON.stringify(body) : undefined,
+        });
+      } catch (networkError) {
+        throw new Error('Не удалось подключиться к серверу. Проверьте адрес API.');
+      }
+
+      const text = await res.text();
+      let data;
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch (err) {
+        throw new Error(`Сервер вернул неожиданный ответ (${res.status}). Проверьте адрес API.`);
+      }
+
+      if (!res.ok) throw new Error(data.detail || `Ошибка ${res.status}`);
       return data;
     };
 
