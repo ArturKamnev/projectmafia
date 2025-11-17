@@ -11,6 +11,9 @@ from typing import Dict, List
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 from pydantic import BaseModel
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
@@ -175,6 +178,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+BASE_DIR = Path(__file__).resolve().parent
+STATIC_DIR = BASE_DIR / "static"
+INDEX_FILE = STATIC_DIR / "index.html"
+
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
 
 @app.post("/api/games")
 def host_game(body: HostRequest):
@@ -224,13 +233,11 @@ def get_game(code: str):
         raise HTTPException(status_code=404, detail=str(exc))
 
 
-@app.get("/")
+@app.get("/", response_class=FileResponse)
 async def root():
-    # Simplified static mini-app UI
-    return {
-        "message": "Mini App загружен. Используйте /api/games для управления партиями.",
-        "cta": "Используйте веб-клиент или Mini App внутри Telegram.",
-    }
+    if not INDEX_FILE.exists():
+        raise HTTPException(status_code=500, detail="Мини-приложение не найдено")
+    return FileResponse(INDEX_FILE)
 
 
 if __name__ == "__main__":
