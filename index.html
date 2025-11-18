@@ -292,6 +292,17 @@
       background: rgba(255, 255, 255, 0.02);
     }
 
+    @media (max-width: 480px) {
+      .players-list {
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+
+      .player-card {
+        width: 100%;
+      }
+    }
+
     .section-title {
       display: flex;
       justify-content: space-between;
@@ -512,26 +523,9 @@
       <h1>Мини‑приложение «Мафия»</h1>
       <p class="subtitle">Создайте комнату, приглашайте друзей и запускайте игру прямо в браузере или Telegram Mini App.</p>
     </div>
-    <div class="flex-row">
-      <div class="status-dot" id="apiStatusDot" title="Проверяем API"></div>
-      <div class="small-muted" id="apiStatusText">API не проверен</div>
-    </div>
   </header>
 
-  <section class="grid">
-    <div class="card">
-      <h2>Подключение</h2>
-      <label for="apiBase">Адрес API</label>
-      <input id="apiBase" name="apiBase" placeholder="https://example.com" aria-label="Адрес API" />
-      <div class="toolbar" style="margin-top:8px;">
-        <button type="button" id="checkApiButton" style="margin-top:0;width:auto;">Проверить доступность</button>
-      </div>
-      <p class="muted">
-        По умолчанию используется текущий домен. Если открываете страницу с GitHub Pages,
-        укажите URL сервера с запущенным backend.
-      </p>
-    </div>
-
+  <section class="grid" id="preGameSection">
     <div class="card">
       <h2>Создать комнату</h2>
       <form id="hostForm">
@@ -580,7 +574,7 @@
     </div>
   </section>
 
-  <section class="card" style="margin-top:16px;">
+  <section class="card" id="gameSection" style="margin-top:16px; display:none;">
     <div class="section-title">
       <h2>Геймплей</h2>
       <div class="phase-badge" id="phaseIndicator">Фаза: Лобби</div>
@@ -600,6 +594,8 @@
       'Двойной агент': { color: '#ec4899', desc: 'Играть на два фронта, выбирая сторону по ситуации.' },
     };
 
+    const API_BASE = 'https://mafia-backend-85t2.onrender.com';
+
     const state = {
       currentUserId: null,
       currentUserName: '',
@@ -618,10 +614,6 @@
     const joinResult = document.getElementById('joinResult');
     const lobbyBlock = document.getElementById('lobbyBlock');
     const gameArea = document.getElementById('gameArea');
-    const apiBaseInput = document.getElementById('apiBase');
-    const apiStatusDot = document.getElementById('apiStatusDot');
-    const apiStatusText = document.getElementById('apiStatusText');
-    const checkApiButton = document.getElementById('checkApiButton');
     const hostNameInput = document.getElementById('hostName');
     const joinNameInput = document.getElementById('nickname');
     const codeInput = document.getElementById('code');
@@ -629,23 +621,26 @@
     const voteModal = document.getElementById('voteModal');
     const voteList = document.getElementById('voteList');
     const closeVote = document.getElementById('closeVote');
+    const preGameSection = document.getElementById('preGameSection');
+    const gameSection = document.getElementById('gameSection');
 
-    const savedApiBase = window.localStorage.getItem('mafiaApiBase');
-    apiBaseInput.value = savedApiBase || window.location.origin;
-
+    const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
     const storedId = window.localStorage.getItem('currentUserId');
     const storedName = window.localStorage.getItem('currentUserName');
-    state.currentUserId = storedId ? Number(storedId) : Date.now();
-    state.currentUserName = storedName || '';
+    if (tgUser) {
+      state.currentUserId = tgUser.id;
+      state.currentUserName = tgUser.username || tgUser.first_name || 'Игрок';
+      window.localStorage.setItem('currentUserName', state.currentUserName);
+    } else {
+      state.currentUserId = storedId ? Number(storedId) : Date.now();
+      state.currentUserName = storedName || '';
+    }
+    window.localStorage.setItem('currentUserId', state.currentUserId);
     hostNameInput.value = state.currentUserName;
     joinNameInput.value = state.currentUserName;
-    window.localStorage.setItem('currentUserId', state.currentUserId);
-
-    const saveApiBase = () => {
-      const base = (apiBaseInput.value || window.location.origin).trim().replace(/\/$/, '');
-      window.localStorage.setItem('mafiaApiBase', base);
-      return base;
-    };
+    if (state.currentUserName) {
+      window.localStorage.setItem('currentUserName', state.currentUserName);
+    }
 
     const showToast = (message, type = 'success') => {
       const div = document.createElement('div');
@@ -655,9 +650,19 @@
       setTimeout(() => div.remove(), 2600);
     };
 
+    const showGameSectionView = () => {
+      preGameSection.style.display = 'none';
+      gameSection.style.display = '';
+    };
+
+    const showPreGameSectionView = () => {
+      preGameSection.style.display = '';
+      gameSection.style.display = 'none';
+    };
+
     const apiClient = {
       async request(path, method = 'GET', body) {
-        const url = `${saveApiBase()}${path}`;
+        const url = `${API_BASE}${path}`;
         let res;
         try {
           res = await fetch(url, {
@@ -695,29 +700,6 @@
     };
 
     const renderPill = (text, type = '') => `<span class="pill ${type}">${text}</span>`;
-
-    const updateApiStatus = async () => {
-      apiStatusDot.className = 'status-dot';
-      apiStatusText.textContent = 'Проверяем API…';
-      const code = state.currentGameCode;
-      const tryPaths = ['/'];
-      if (code) tryPaths.push(`/api/games/${code}`);
-      for (const path of tryPaths) {
-        apiStatusDot.className = 'status-dot';
-        try {
-          await apiClient.request(path);
-          apiStatusDot.classList.add('success');
-          apiStatusText.textContent = 'API доступно';
-          return;
-        } catch (err) {
-          apiStatusDot.classList.add('danger');
-          apiStatusText.textContent = 'API недоступно';
-          if (path === tryPaths[tryPaths.length - 1]) {
-            showToast(`${err.message} Проверьте адрес API или соединение.`, 'error');
-          }
-        }
-      }
-    };
 
     const renderPlayersList = (players, hostId, slots) => {
       const filled = players.map((player) => {
@@ -791,10 +773,13 @@
 
     const renderGameScreen = () => {
       if (!state.gameStarted || !state.lastGameData) {
+        showPreGameSectionView();
         gameArea.innerHTML = '<div class="muted">Игра появится после запуска.</div>';
         phaseIndicator.textContent = 'Фаза: Лобби';
         return;
       }
+
+      showGameSectionView();
 
       const roleName = state.currentRole || 'Неизвестно';
       const roleMeta = roleDescriptions[roleName] || { color: '#f1f5f9', desc: 'Роль не определена.' };
@@ -872,8 +857,25 @@
         const data = await apiClient.getGame(code);
         state.lastGameData = data;
         state.currentGameCode = data.code;
-        renderLobby(data);
-        if (state.gameStarted) renderGameScreen();
+        if (data.started) {
+          state.gameStarted = true;
+          const assignments = data.assignments || {};
+          if (assignments) {
+            const myRole = assignments[String(state.currentUserId)] || assignments[state.currentUserId];
+            state.currentRole = myRole || state.currentRole || null;
+          }
+          if (state.currentPhase === 'lobby') {
+            state.currentPhase = 'day';
+          }
+          renderGameScreen();
+        } else {
+          state.gameStarted = false;
+          state.currentRole = null;
+          state.currentPhase = 'lobby';
+          state.currentRound = 1;
+          renderLobby(data);
+          renderGameScreen();
+        }
       } catch (err) {
         lobbyBlock.innerHTML = renderPill(err.message, 'warning');
         showToast(`${err.message} Проверьте адрес API или соединение.`, 'error');
@@ -893,13 +895,13 @@
       lobbyBlock.querySelector('#startGameBtn').disabled = true;
       try {
         const res = await apiClient.startGame(code);
-        const myRole = res.assignments[state.currentUserId];
+        const myRole = res.assignments?.[String(state.currentUserId)] || res.assignments?.[state.currentUserId];
         state.currentRole = myRole || null;
         state.gameStarted = true;
         state.currentPhase = 'day';
         state.currentRound = 1;
         showToast('Игра началась! Роли распределены.', 'success');
-        renderGameScreen();
+        await refreshGame(code);
       } catch (err) {
         showToast(err.message, 'error');
         renderLobby(state.lastGameData);
@@ -949,9 +951,6 @@
 
     hostForm.addEventListener('submit', handleHostCreate);
     joinForm.addEventListener('submit', handleJoin);
-    checkApiButton.addEventListener('click', updateApiStatus);
-
-    updateApiStatus();
   </script>
 </body>
 </html>
