@@ -9,11 +9,16 @@
       color-scheme: light dark;
       --bg: #0b0c10;
       --panel: #12141b;
+      --panel-strong: #0f1117;
       --accent: #e63946;
+      --accent-soft: #fb7185;
       --text: #f1f5f9;
       --muted: #9ca3af;
       --success: #22c55e;
       --warning: #f59e0b;
+      --danger: #ef4444;
+      --card-border: rgba(255, 255, 255, 0.08);
+      --glass: rgba(255, 255, 255, 0.04);
     }
 
     * {
@@ -37,9 +42,26 @@
       letter-spacing: -0.02em;
     }
 
+    h2 {
+      margin: 0 0 8px;
+    }
+
     p {
       margin: 0 0 12px;
       color: var(--muted);
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      margin-top: 4px;
     }
 
     .grid {
@@ -51,11 +73,27 @@
 
     .card {
       background: rgba(18, 20, 27, 0.86);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--card-border);
       border-radius: 16px;
       padding: 18px;
       box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);
       backdrop-filter: blur(6px);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: radial-gradient(circle at 20% 20%, rgba(255,255,255,0.06), transparent 30%);
+      opacity: 0.7;
+    }
+
+    .card > * {
+      position: relative;
+      z-index: 1;
     }
 
     label {
@@ -64,29 +102,41 @@
       margin-bottom: 6px;
     }
 
-    input, select, button {
+    input, select, button, textarea {
       width: 100%;
       padding: 10px 12px;
       border-radius: 10px;
       border: 1px solid rgba(255, 255, 255, 0.08);
-      background: rgba(255, 255, 255, 0.04);
+      background: var(--glass);
       color: var(--text);
       font-size: 14px;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      outline: 2px solid rgba(230, 57, 70, 0.4);
+      border-color: rgba(230, 57, 70, 0.4);
     }
 
     button {
       margin-top: 10px;
       cursor: pointer;
       font-weight: 700;
-      background: linear-gradient(120deg, var(--accent), #fb7185);
+      background: linear-gradient(120deg, var(--accent), var(--accent-soft));
       border: none;
       box-shadow: 0 8px 20px rgba(230, 57, 70, 0.35);
-      transition: transform 120ms ease, box-shadow 120ms ease;
+      transition: transform 120ms ease, box-shadow 120ms ease, opacity 160ms ease;
     }
 
     button:hover {
       transform: translateY(-1px);
       box-shadow: 0 10px 24px rgba(230, 57, 70, 0.45);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+      transform: none;
+      box-shadow: none;
     }
 
     .roles {
@@ -100,9 +150,15 @@
       align-items: center;
       gap: 10px;
       padding: 8px 10px;
-      background: rgba(255, 255, 255, 0.04);
+      background: var(--glass);
       border-radius: 10px;
       border: 1px solid rgba(255, 255, 255, 0.06);
+      transition: transform 120ms ease, border-color 120ms ease;
+    }
+
+    .checkbox:hover {
+      transform: translateY(-1px);
+      border-color: rgba(255, 255, 255, 0.16);
     }
 
     .pill {
@@ -127,6 +183,11 @@
       border-color: rgba(245, 158, 11, 0.5);
     }
 
+    .pill.danger {
+      color: var(--danger);
+      border-color: rgba(239, 68, 68, 0.5);
+    }
+
     .stack {
       display: flex;
       flex-direction: column;
@@ -146,24 +207,325 @@
       font-weight: 700;
       letter-spacing: 0.04em;
     }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(230, 57, 70, 0.12);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(230, 57, 70, 0.35);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+    }
+
+    .badge button {
+      width: auto;
+      margin: 0;
+      background: rgba(255, 255, 255, 0.08);
+      box-shadow: none;
+      padding: 6px 10px;
+    }
+
+    .players-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .player-card {
+      padding: 12px;
+      border-radius: 12px;
+      background: var(--panel-strong);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      position: relative;
+      overflow: hidden;
+      transition: transform 120ms ease, border-color 120ms ease;
+    }
+
+    .player-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(255, 255, 255, 0.16);
+    }
+
+    .player-card .avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, rgba(230, 57, 70, 0.4), rgba(251, 113, 133, 0.2));
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      color: var(--text);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .player-card.host {
+      border: 1px solid rgba(255, 215, 0, 0.5);
+      box-shadow: 0 0 0 1px rgba(255, 215, 0, 0.15);
+    }
+
+    .player-card.me {
+      border: 1px solid rgba(34, 197, 94, 0.5);
+    }
+
+    .player-card .name {
+      font-weight: 700;
+    }
+
+    .player-card .label {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .player-card.placeholder {
+      border-style: dashed;
+      color: var(--muted);
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .section-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .lobby-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--warning);
+      box-shadow: 0 0 0 6px rgba(245, 158, 11, 0.12);
+    }
+
+    .status-dot.success {
+      background: var(--success);
+      box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.12);
+    }
+
+    .status-dot.danger {
+      background: var(--danger);
+      box-shadow: 0 0 0 6px rgba(239, 68, 68, 0.12);
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .toolbar button {
+      width: auto;
+      padding: 10px 14px;
+    }
+
+    .game-layout {
+      display: grid;
+      grid-template-columns: 1.5fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 900px) {
+      .game-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .role-card {
+      padding: 16px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .role-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 30% 20%, rgba(255,255,255,0.08), transparent 35%);
+      opacity: 0.7;
+      pointer-events: none;
+    }
+
+    .role-card .role-name {
+      font-size: 26px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .role-card .role-desc {
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .phase-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(255, 255, 255, 0.06);
+      font-weight: 700;
+    }
+
+    .phase-toggle {
+      display: inline-flex;
+      align-items: center;
+      background: var(--panel-strong);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-left: 8px;
+    }
+
+    .phase-toggle button {
+      margin: 0;
+      border-radius: 0;
+      box-shadow: none;
+      padding: 8px 14px;
+      background: transparent;
+      border: none;
+    }
+
+    .phase-toggle button.active {
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .players-panel {
+      background: var(--panel-strong);
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.08);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+    }
+
+    .toast-container {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 9999;
+    }
+
+    .toast {
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: var(--panel);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+      animation: slideIn 220ms ease, fadeOut 300ms ease 2.3s forwards;
+      min-width: 240px;
+    }
+
+    .toast.success { border-color: rgba(34, 197, 94, 0.6); }
+    .toast.warning { border-color: rgba(245, 158, 11, 0.6); }
+    .toast.error { border-color: rgba(239, 68, 68, 0.6); }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      padding: 16px;
+    }
+
+    .modal {
+      background: var(--panel);
+      border-radius: 16px;
+      padding: 18px;
+      width: min(480px, 100%);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .flex-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .small-muted { font-size: 12px; color: var(--muted); }
   </style>
 </head>
 <body>
+  <div class="toast-container" id="toastContainer"></div>
+  <div class="modal-backdrop" id="voteModal">
+    <div class="modal">
+      <h3>Голосовать против</h3>
+      <p class="muted">Выберите игрока, против которого хотите проголосовать (пока без отправки на сервер).</p>
+      <div id="voteList" class="stack"></div>
+      <div class="modal-actions">
+        <button type="button" id="closeVote">Закрыть</button>
+      </div>
+    </div>
+  </div>
   <header>
-    <h1>Мини‑приложение «Мафия»</h1>
-    <p>Создайте комнату, приглашайте друзей и запускайте игру прямо в браузере или Telegram Mini App.</p>
+    <div>
+      <h1>Мини‑приложение «Мафия»</h1>
+      <p class="subtitle">Создайте комнату, приглашайте друзей и запускайте игру прямо в браузере или Telegram Mini App.</p>
+    </div>
+    <div class="flex-row">
+      <div class="status-dot" id="apiStatusDot" title="Проверяем API"></div>
+      <div class="small-muted" id="apiStatusText">API не проверен</div>
+    </div>
   </header>
 
   <section class="grid">
     <div class="card">
       <h2>Подключение</h2>
       <label for="apiBase">Адрес API</label>
-      <input
-        id="apiBase"
-        name="apiBase"
-        placeholder="https://example.com"
-        aria-label="Адрес API"
-      />
+      <input id="apiBase" name="apiBase" placeholder="https://example.com" aria-label="Адрес API" />
+      <div class="toolbar" style="margin-top:8px;">
+        <button type="button" id="checkApiButton" style="margin-top:0;width:auto;">Проверить доступность</button>
+      </div>
       <p class="muted">
         По умолчанию используется текущий домен. Если открываете страницу с GitHub Pages,
         укажите URL сервера с запущенным backend.
@@ -188,6 +550,9 @@
           <label class="checkbox"><input type="checkbox" name="role" value="Двойной агент" /> Двойной агент</label>
         </div>
 
+        <label for="hostName" style="margin-top:12px;">Имя ведущего</label>
+        <input id="hostName" name="hostName" placeholder="Ваш ник" />
+
         <button type="submit">Создать комнату</button>
       </form>
       <div class="stack" id="hostResult"></div>
@@ -208,148 +573,385 @@
     </div>
 
     <div class="card">
-      <h2>Управление партией</h2>
-      <form id="statusForm">
-        <label for="statusCode">Код комнаты</label>
-        <input id="statusCode" name="statusCode" required placeholder="Код комнаты" />
-        <button type="submit">Показать статус</button>
-      </form>
-
-      <button id="startButton" style="margin-top:12px;">Запустить игру</button>
-      <div class="stack" id="statusBlock">
-        <div class="muted">Здесь появится информация о текущей комнате.</div>
+      <h2>Лобби комнаты</h2>
+      <div class="stack" id="lobbyBlock">
+        <div class="muted">Создайте или присоединитесь к комнате, чтобы увидеть лобби.</div>
       </div>
     </div>
   </section>
 
+  <section class="card" style="margin-top:16px;">
+    <div class="section-title">
+      <h2>Геймплей</h2>
+      <div class="phase-badge" id="phaseIndicator">Фаза: Лобби</div>
+    </div>
+    <div id="gameArea" class="muted">Игра появится после запуска.</div>
+  </section>
+
   <script>
+    const roleDescriptions = {
+      'Мафия': { color: '#e63946', desc: 'Устраняет игроков ночью и пытается остаться незамеченной.' },
+      'Детектив': { color: '#3b82f6', desc: 'Каждую ночь проверяет игроков и ищет мафию.' },
+      'Доктор': { color: '#22c55e', desc: 'Может спасти одного игрока от убийства за ночь.' },
+      'Мирный житель': { color: '#10b981', desc: 'Обсуждает, голосует и помогает вычислить мафию.' },
+      'Офицер': { color: '#a855f7', desc: 'Имеет право на один арест за игру.' },
+      'Камикадзе': { color: '#f97316', desc: 'Может забрать с собой любого игрока при смерти.' },
+      'Фантом': { color: '#64748b', desc: 'Прячется в тени и может скрывать свою роль.' },
+      'Двойной агент': { color: '#ec4899', desc: 'Играть на два фронта, выбирая сторону по ситуации.' },
+    };
+
+    const state = {
+      currentUserId: null,
+      currentUserName: '',
+      currentGameCode: null,
+      currentRole: null,
+      currentPhase: 'lobby',
+      currentRound: 1,
+      lastGameData: null,
+      gameStarted: false,
+    };
+
+    const toastContainer = document.getElementById('toastContainer');
     const hostForm = document.getElementById('hostForm');
     const joinForm = document.getElementById('joinForm');
-    const statusForm = document.getElementById('statusForm');
-    const startButton = document.getElementById('startButton');
     const hostResult = document.getElementById('hostResult');
     const joinResult = document.getElementById('joinResult');
-    const statusBlock = document.getElementById('statusBlock');
-    const codeInput = document.getElementById('code');
-    const statusCodeInput = document.getElementById('statusCode');
+    const lobbyBlock = document.getElementById('lobbyBlock');
+    const gameArea = document.getElementById('gameArea');
     const apiBaseInput = document.getElementById('apiBase');
+    const apiStatusDot = document.getElementById('apiStatusDot');
+    const apiStatusText = document.getElementById('apiStatusText');
+    const checkApiButton = document.getElementById('checkApiButton');
+    const hostNameInput = document.getElementById('hostName');
+    const joinNameInput = document.getElementById('nickname');
+    const codeInput = document.getElementById('code');
+    const phaseIndicator = document.getElementById('phaseIndicator');
+    const voteModal = document.getElementById('voteModal');
+    const voteList = document.getElementById('voteList');
+    const closeVote = document.getElementById('closeVote');
 
     const savedApiBase = window.localStorage.getItem('mafiaApiBase');
     apiBaseInput.value = savedApiBase || window.location.origin;
 
-    const getApiUrl = (path) => {
+    const storedId = window.localStorage.getItem('currentUserId');
+    const storedName = window.localStorage.getItem('currentUserName');
+    state.currentUserId = storedId ? Number(storedId) : Date.now();
+    state.currentUserName = storedName || '';
+    hostNameInput.value = state.currentUserName;
+    joinNameInput.value = state.currentUserName;
+    window.localStorage.setItem('currentUserId', state.currentUserId);
+
+    const saveApiBase = () => {
       const base = (apiBaseInput.value || window.location.origin).trim().replace(/\/$/, '');
       window.localStorage.setItem('mafiaApiBase', base);
-      return `${base}${path}`;
+      return base;
     };
 
-    const api = async (path, method = 'GET', body) => {
-      const url = getApiUrl(path);
-      let res;
-      try {
-        res = await fetch(url, {
-          method,
-          headers: { 'Content-Type': 'application/json' },
-          body: body ? JSON.stringify(body) : undefined,
-        });
-      } catch (networkError) {
-        throw new Error('Не удалось подключиться к серверу. Проверьте адрес API.');
-      }
+    const showToast = (message, type = 'success') => {
+      const div = document.createElement('div');
+      div.className = `toast ${type}`;
+      div.textContent = message;
+      toastContainer.appendChild(div);
+      setTimeout(() => div.remove(), 2600);
+    };
 
-      const text = await res.text();
-      let data;
-      try {
-        data = text ? JSON.parse(text) : {};
-      } catch (err) {
-        throw new Error(`Сервер вернул неожиданный ответ (${res.status}). Проверьте адрес API.`);
-      }
+    const apiClient = {
+      async request(path, method = 'GET', body) {
+        const url = `${saveApiBase()}${path}`;
+        let res;
+        try {
+          res = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: body ? JSON.stringify(body) : undefined,
+          });
+        } catch (err) {
+          throw new Error('Не удалось подключиться к серверу. Проверьте адрес API или соединение.');
+        }
 
-      if (!res.ok) throw new Error(data.detail || `Ошибка ${res.status}`);
-      return data;
+        const text = await res.text();
+        let data;
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch (err) {
+          throw new Error(`Сервер вернул неожиданный ответ (${res.status}). Проверьте адрес API.`);
+        }
+
+        if (!res.ok) throw new Error(data.detail || `Ошибка ${res.status}`);
+        return data;
+      },
+      createGame(payload) {
+        return this.request('/api/games', 'POST', payload);
+      },
+      joinGame(code, payload) {
+        return this.request(`/api/games/${code}/join`, 'POST', payload);
+      },
+      getGame(code) {
+        return this.request(`/api/games/${code}`);
+      },
+      startGame(code) {
+        return this.request(`/api/games/${code}/start`, 'POST');
+      },
     };
 
     const renderPill = (text, type = '') => `<span class="pill ${type}">${text}</span>`;
 
-    const setStatus = (element, html) => {
-      element.innerHTML = html;
+    const updateApiStatus = async () => {
+      apiStatusDot.className = 'status-dot';
+      apiStatusText.textContent = 'Проверяем API…';
+      const code = state.currentGameCode;
+      const tryPaths = ['/'];
+      if (code) tryPaths.push(`/api/games/${code}`);
+      for (const path of tryPaths) {
+        apiStatusDot.className = 'status-dot';
+        try {
+          await apiClient.request(path);
+          apiStatusDot.classList.add('success');
+          apiStatusText.textContent = 'API доступно';
+          return;
+        } catch (err) {
+          apiStatusDot.classList.add('danger');
+          apiStatusText.textContent = 'API недоступно';
+          if (path === tryPaths[tryPaths.length - 1]) {
+            showToast(`${err.message} Проверьте адрес API или соединение.`, 'error');
+          }
+        }
+      }
     };
 
-    hostForm.addEventListener('submit', async (e) => {
+    const renderPlayersList = (players, hostId, slots) => {
+      const filled = players.map((player) => {
+        const isHost = player.user_id === hostId;
+        const isMe = player.user_id === state.currentUserId;
+        const initials = player.name ? player.name.slice(0, 2).toUpperCase() : '??';
+        return `
+          <div class="player-card ${isHost ? 'host' : ''} ${isMe ? 'me' : ''}">
+            <div class="avatar">${isHost ? '👑' : ''}${initials}</div>
+            <div>
+              <div class="name">${player.name || 'Без имени'} ${isMe ? '(Вы)' : ''} ${isHost ? '👑' : ''}</div>
+              <div class="label">ID: ${player.user_id}</div>
+            </div>
+          </div>
+        `;
+      });
+
+      const placeholders = Array.from({ length: Math.max(slots - players.length, 0) }).map(
+        () => '<div class="player-card placeholder">Свободное место</div>'
+      );
+
+      return `<div class="players-list">${[...filled, ...placeholders].join('')}</div>`;
+    };
+
+    const renderLobby = (data) => {
+      if (!data) {
+        lobbyBlock.innerHTML = '<div class="muted">Создайте или присоединитесь к комнате, чтобы увидеть лобби.</div>';
+        return;
+      }
+      const { code, slots, players, host_id } = data;
+      const hostPlayer = players.find((p) => p.user_id === host_id);
+      lobbyBlock.innerHTML = `
+        <div class="lobby-header">
+          <span class="badge">Код комнаты: <code>${code}</code></span>
+          <button type="button" id="copyCode" style="width:auto;">Скопировать код</button>
+        </div>
+        <div class="muted">Ведущий: ${hostPlayer ? '👑 ' + hostPlayer.name : '—'}</div>
+        <div class="muted">Игроков: ${players.length} / ${slots}</div>
+        ${renderPlayersList(players, host_id, slots)}
+        <div class="toolbar">
+          <button type="button" id="refreshLobby" style="width:auto;">Обновить лобби</button>
+          <button type="button" id="startGameBtn" style="width:auto;" ${shouldDisableStart(data) ? 'disabled' : ''} title="${startTooltip(data)}">Запустить игру</button>
+        </div>
+        <div class="small-muted">Запустить игру может только ведущий. Нужно минимум 4 игрока.</div>
+      `;
+
+      document.getElementById('copyCode').onclick = async () => {
+        await navigator.clipboard.writeText(code);
+        showToast('Код скопирован', 'success');
+      };
+
+      document.getElementById('refreshLobby').onclick = async () => {
+        await refreshGame(data.code);
+        showToast('Лобби обновлено', 'success');
+      };
+
+      document.getElementById('startGameBtn').onclick = async () => {
+        await handleStartGame();
+      };
+    };
+
+    const startTooltip = (data) => {
+      if (data.host_id !== state.currentUserId) return 'Только ведущий может начать игру';
+      if (data.players.length < 4) return 'Нужно минимум 4 игрока';
+      return '';
+    };
+
+    const shouldDisableStart = (data) => {
+      return data.host_id !== state.currentUserId || data.players.length < 4;
+    };
+
+    const renderGameScreen = () => {
+      if (!state.gameStarted || !state.lastGameData) {
+        gameArea.innerHTML = '<div class="muted">Игра появится после запуска.</div>';
+        phaseIndicator.textContent = 'Фаза: Лобби';
+        return;
+      }
+
+      const roleName = state.currentRole || 'Неизвестно';
+      const roleMeta = roleDescriptions[roleName] || { color: '#f1f5f9', desc: 'Роль не определена.' };
+      const players = state.lastGameData.players || [];
+      const hostId = state.lastGameData.host_id;
+      const phaseLabel = state.currentPhase === 'day' ? 'День' : 'Ночь';
+      phaseIndicator.textContent = `Фаза: ${state.currentPhase === 'lobby' ? 'Лобби' : phaseLabel}`;
+
+      gameArea.innerHTML = `
+        <div class="game-layout">
+          <div class="role-card" style="border-color:${roleMeta.color}; box-shadow: 0 10px 30px ${roleMeta.color}33;">
+            <div class="flex-row" style="justify-content: space-between;">
+              <div class="phase-badge">Раунд ${state.currentRound}</div>
+              <div class="phase-toggle">
+                <button type="button" class="${state.currentPhase === 'day' ? 'active' : ''}" data-phase="day">День</button>
+                <button type="button" class="${state.currentPhase === 'night' ? 'active' : ''}" data-phase="night">Ночь</button>
+              </div>
+            </div>
+            <div class="role-name" style="color:${roleMeta.color}">${roleName}</div>
+            <div class="role-desc">${roleMeta.desc}</div>
+          </div>
+          <div class="players-panel">
+            <div class="section-title">
+              <div>Игроки</div>
+              <div class="pill">Ход: ${phaseLabel}</div>
+            </div>
+            ${renderPlayersList(players, hostId, state.lastGameData.slots || players.length)}
+          </div>
+        </div>
+        <div class="actions" style="margin-top:14px;">
+          <button type="button" id="voteButton">Голосовать против игрока…</button>
+          <button type="button" id="nextRoundButton">Следующий раунд</button>
+        </div>
+      `;
+
+      gameArea.querySelectorAll('.phase-toggle button').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          state.currentPhase = btn.dataset.phase;
+          renderGameScreen();
+        });
+      });
+
+      document.getElementById('voteButton').onclick = () => openVoteModal(players);
+      document.getElementById('nextRoundButton').onclick = () => {
+        state.currentRound += 1;
+        state.currentPhase = state.currentPhase === 'day' ? 'night' : 'day';
+        renderGameScreen();
+      };
+    };
+
+    const openVoteModal = (players) => {
+      voteList.innerHTML = players
+        .map((p) => `<button type="button" style="width:100%;" class="vote-choice" data-id="${p.user_id}">${p.name} ${p.user_id === state.currentUserId ? '(Вы)' : ''}</button>`)
+        .join('');
+      voteModal.style.display = 'flex';
+      voteList.querySelectorAll('.vote-choice').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          showToast(`Вы выбрали: ${btn.textContent}`, 'success');
+          voteModal.style.display = 'none';
+        });
+      });
+    };
+
+    closeVote.addEventListener('click', () => {
+      voteModal.style.display = 'none';
+    });
+
+    voteModal.addEventListener('click', (e) => {
+      if (e.target === voteModal) voteModal.style.display = 'none';
+    });
+
+    const refreshGame = async (code) => {
+      if (!code) return;
+      try {
+        const data = await apiClient.getGame(code);
+        state.lastGameData = data;
+        state.currentGameCode = data.code;
+        renderLobby(data);
+        if (state.gameStarted) renderGameScreen();
+      } catch (err) {
+        lobbyBlock.innerHTML = renderPill(err.message, 'warning');
+        showToast(`${err.message} Проверьте адрес API или соединение.`, 'error');
+      }
+    };
+
+    const handleStartGame = async () => {
+      if (!state.lastGameData) return;
+      const code = state.lastGameData.code;
+      const data = state.lastGameData;
+      if (shouldDisableStart(data)) {
+        showToast(startTooltip(data), 'warning');
+        return;
+      }
+      renderLobby({ ...data, players: data.players });
+      lobbyBlock.querySelector('#startGameBtn').textContent = 'Распределяем роли…';
+      lobbyBlock.querySelector('#startGameBtn').disabled = true;
+      try {
+        const res = await apiClient.startGame(code);
+        const myRole = res.assignments[state.currentUserId];
+        state.currentRole = myRole || null;
+        state.gameStarted = true;
+        state.currentPhase = 'day';
+        state.currentRound = 1;
+        showToast('Игра началась! Роли распределены.', 'success');
+        renderGameScreen();
+      } catch (err) {
+        showToast(err.message, 'error');
+        renderLobby(state.lastGameData);
+      }
+    };
+
+    const handleHostCreate = async (e) => {
       e.preventDefault();
       const slots = Number(hostForm.slots.value);
       const roles = Array.from(hostForm.querySelectorAll('input[name="role"]:checked')).map((el) => el.value);
-      setStatus(hostResult, renderPill('Создаем комнату…', 'warning'));
+      const hostName = hostNameInput.value.trim() || 'Ведущий';
+      state.currentUserName = hostName;
+      window.localStorage.setItem('currentUserName', hostName);
+      hostResult.innerHTML = renderPill('Создаем комнату…', 'warning');
       try {
-        const data = await api('/api/games', 'POST', { slots, roles });
-        const code = data.code;
-        setStatus(hostResult, `Код вашей комнаты: <code>${code}</code><br><span class="muted">Поделитесь кодом с друзьями и пригласите их в Mini App.</span>`);
-        codeInput.value = code;
-        statusCodeInput.value = code;
+        const data = await apiClient.createGame({ slots, roles, host_id: state.currentUserId, host_name: hostName });
+        state.currentGameCode = data.code;
+        state.lastGameData = data;
+        codeInput.value = data.code;
+        hostResult.innerHTML = `${renderPill('Готово', 'success')} Код вашей комнаты: <code>${data.code}</code>`;
+        renderLobby(data);
+        showToast('Комната создана', 'success');
       } catch (err) {
-        setStatus(hostResult, renderPill(err.message, 'warning'));
-      }
-    });
-
-    joinForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const code = joinForm.code.value.trim().toUpperCase();
-      const name = joinForm.nickname.value.trim();
-      setStatus(joinResult, renderPill('Отправляем запрос…', 'warning'));
-      try {
-        const data = await api(`/api/games/${code}/join`, 'POST', { user_id: Date.now(), name });
-        setStatus(joinResult, `${renderPill('Готово', 'success')} Участники: ${data.players.join(', ')}`);
-        statusCodeInput.value = code;
-      } catch (err) {
-        setStatus(joinResult, renderPill(err.message, 'warning'));
-      }
-    });
-
-    statusForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      await refreshStatus();
-    });
-
-    startButton.addEventListener('click', async () => {
-      const code = statusCodeInput.value.trim().toUpperCase();
-      if (!code) return setStatus(statusBlock, renderPill('Укажите код комнаты', 'warning'));
-      setStatus(statusBlock, renderPill('Запускаем игру…', 'warning'));
-      try {
-        const data = await api(`/api/games/${code}/start`, 'POST');
-        const assignments = Object.entries(data.assignments)
-          .map(([id, role]) => `<div class="pill">Игрок ${id.slice(-4)} → ${role}</div>`)
-          .join('');
-        setStatus(statusBlock, `${renderPill('Игра началась!', 'success')}<div class="stack">${assignments}</div>`);
-      } catch (err) {
-        setStatus(statusBlock, renderPill(err.message, 'warning'));
-      }
-    });
-
-    const refreshStatus = async () => {
-      const code = statusCodeInput.value.trim().toUpperCase();
-      if (!code) return setStatus(statusBlock, renderPill('Укажите код комнаты', 'warning'));
-      setStatus(statusBlock, renderPill('Обновляем…', 'warning'));
-      try {
-        const data = await api(`/api/games/${code}`);
-        const players = data.players.length
-          ? data.players.map((p) => `<div class="pill">${p}</div>`).join('')
-          : '<div class="muted">Пока никого нет</div>';
-        const started = data.started
-          ? renderPill('Игра запущена', 'success')
-          : renderPill('Ожидаем игроков', 'warning');
-        setStatus(
-          statusBlock,
-          `<div class="stack">
-            <div>${started}</div>
-            <div>Код комнаты: <code>${data.code}</code></div>
-            <div>Роли: ${data.roles.join(', ')}</div>
-            <div>Игроки (${data.players.length}/${data.roles.length}):</div>
-            <div class="stack">${players}</div>
-          </div>`
-        );
-      } catch (err) {
-        setStatus(statusBlock, renderPill(err.message, 'warning'));
+        hostResult.innerHTML = renderPill(err.message, 'warning');
+        showToast(`${err.message} Проверьте адрес API или соединение.`, 'error');
       }
     };
+
+    const handleJoin = async (e) => {
+      e.preventDefault();
+      const code = joinForm.code.value.trim().toUpperCase();
+      const name = joinForm.nickname.value.trim() || 'Игрок';
+      state.currentUserName = name;
+      window.localStorage.setItem('currentUserName', name);
+      joinResult.innerHTML = renderPill('Отправляем запрос…', 'warning');
+      try {
+        const data = await apiClient.joinGame(code, { user_id: state.currentUserId, name });
+        joinResult.innerHTML = `${renderPill('Готово', 'success')} Участников: ${data.players.length}`;
+        state.currentGameCode = code;
+        await refreshGame(code);
+        showToast('Вы в комнате', 'success');
+      } catch (err) {
+        joinResult.innerHTML = renderPill(err.message, 'warning');
+        showToast(`${err.message} Проверьте адрес API или соединение.`, 'error');
+      }
+    };
+
+    hostForm.addEventListener('submit', handleHostCreate);
+    joinForm.addEventListener('submit', handleJoin);
+    checkApiButton.addEventListener('click', updateApiStatus);
+
+    updateApiStatus();
   </script>
 </body>
 </html>
