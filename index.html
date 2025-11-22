@@ -730,6 +730,7 @@
         return;
       }
       const { code, slots, players, host_id } = data;
+      const isHost = host_id === state.currentUserId;
       const hostPlayer = players.find((p) => p.user_id === host_id);
       lobbyBlock.innerHTML = `
         <div class="lobby-header">
@@ -741,6 +742,7 @@
         ${renderPlayersList(players, host_id, slots)}
         <div class="toolbar">
           <button type="button" id="refreshLobby" style="width:auto;">Обновить лобби</button>
+          ${isHost ? '<button type="button" id="fillBotsBtn" style="width:auto;">Заполнить лобби ботами</button>' : ''}
           <button type="button" id="startGameBtn" style="width:auto;" ${shouldDisableStart(data) ? 'disabled' : ''} title="${startTooltip(data)}">Запустить игру</button>
         </div>
         <div class="small-muted">Запустить игру может только ведущий. Нужно минимум 4 игрока.</div>
@@ -755,6 +757,13 @@
         await refreshGame(data.code);
         showToast('Лобби обновлено', 'success');
       };
+
+      const fillBotsBtn = document.getElementById('fillBotsBtn');
+      if (fillBotsBtn) {
+        fillBotsBtn.onclick = async () => {
+          await handleFillBots();
+        };
+      }
 
       document.getElementById('startGameBtn').onclick = async () => {
         await handleStartGame();
@@ -928,6 +937,50 @@
         hostResult.innerHTML = renderPill(err.message, 'warning');
         showToast(`${err.message} Проверьте адрес API или соединение.`, 'error');
       }
+    };
+
+    const handleFillBots = async () => {
+      const gameData = state.lastGameData;
+      if (!gameData) {
+        showToast('Нет активной комнаты для заполнения.', 'warning');
+        return;
+      }
+
+      const { code, slots, players } = gameData;
+      const freeSlots = slots - players.length;
+      if (freeSlots <= 0) {
+        showToast('Лобби уже заполнено.', 'warning');
+        return;
+      }
+
+      const fillBtn = document.getElementById('fillBotsBtn');
+      if (fillBtn) {
+        fillBtn.disabled = true;
+        fillBtn.textContent = 'Добавляем ботов…';
+      }
+
+      const startingIndex = players.length + 1;
+      for (let i = 0; i < freeSlots; i++) {
+        const botNumber = startingIndex + i;
+        const payload = {
+          user_id: Date.now() + i,
+          name: `Бот ${botNumber}`,
+          is_bot: true,
+        };
+
+        try {
+          await apiClient.joinGame(code, payload);
+        } catch (err) {
+          showToast(`Не удалось добавить Бот ${botNumber}: ${err.message}`, 'error');
+        }
+      }
+
+      if (fillBtn) {
+        fillBtn.textContent = 'Заполнить лобби ботами';
+        fillBtn.disabled = false;
+      }
+
+      await refreshGame(code);
     };
 
     const handleJoin = async (e) => {
