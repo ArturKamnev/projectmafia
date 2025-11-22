@@ -440,6 +440,18 @@
       gap: 10px;
     }
 
+    .action-card {
+      background: var(--panel-strong);
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.08);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .action-card h4 { margin: 0; }
+
     .toast-container {
       position: fixed;
       top: 16px;
@@ -504,6 +516,87 @@
     }
 
     .small-muted { font-size: 12px; color: var(--muted); }
+
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.72);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 900;
+      text-align: center;
+      padding: 16px;
+    }
+
+    .overlay.active { display: flex; }
+
+    .overlay .overlay-box {
+      background: rgba(18,20,27,0.9);
+      padding: 18px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.12);
+      max-width: 460px;
+      width: 100%;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+    }
+
+    .chat-panel {
+      background: var(--panel-strong);
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.08);
+      padding: 12px;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      height: 100%;
+      min-height: 260px;
+    }
+
+    .chat-messages {
+      overflow-y: auto;
+      max-height: 320px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-right: 4px;
+    }
+
+    .chat-message {
+      background: rgba(255,255,255,0.04);
+      border-radius: 10px;
+      padding: 8px 10px;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .chat-message .name { font-weight: 700; }
+    .chat-message .text { color: var(--text); }
+    .chat-message .meta { color: var(--muted); font-size: 12px; }
+
+    .event-log {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .event-entry {
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .badge-bot {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(59,130,246,0.1);
+      color: #93c5fd;
+      font-size: 12px;
+      font-weight: 700;
+    }
   </style>
 </head>
 <body>
@@ -582,6 +675,14 @@
     <div id="gameArea" class="muted">Игра появится после запуска.</div>
   </section>
 
+  <div class="overlay" id="phaseOverlay">
+    <div class="overlay-box">
+      <div class="pill" id="overlayPhase">Ночь</div>
+      <h3 style="margin:8px 0;">Сейчас ход другого игрока</h3>
+      <p class="muted" id="overlayMessage">Подождите, пока текущая роль завершит действие.</p>
+    </div>
+  </div>
+
   <script>
     const roleDescriptions = {
       'Мафия': { color: '#e63946', desc: 'Устраняет игроков ночью и пытается остаться незамеченной.' },
@@ -603,8 +704,17 @@
       currentRole: null,
       currentPhase: 'lobby',
       currentRound: 1,
+      currentActorId: null,
       lastGameData: null,
       gameStarted: false,
+      hasActedThisPhase: false,
+      lastPhase: 'lobby',
+      lastRound: 1,
+      chatMessages: [],
+      lastEvents: [],
+      pollingInterval: null,
+      chatInterval: null,
+      actionInFlight: false,
     };
 
     const toastContainer = document.getElementById('toastContainer');
@@ -623,6 +733,9 @@
     const closeVote = document.getElementById('closeVote');
     const preGameSection = document.getElementById('preGameSection');
     const gameSection = document.getElementById('gameSection');
+    const phaseOverlay = document.getElementById('phaseOverlay');
+    const overlayPhase = document.getElementById('overlayPhase');
+    const overlayMessage = document.getElementById('overlayMessage');
 
     const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
     const storedId = window.localStorage.getItem('currentUserId');
@@ -697,6 +810,18 @@
       startGame(code) {
         return this.request(`/api/games/${code}/start`, 'POST');
       },
+      sendAction(code, payload) {
+        return this.request(`/api/games/${code}/action`, 'POST', payload);
+      },
+      fetchChat(code) {
+        return this.request(`/api/games/${code}/chat`);
+      },
+      sendChatMessage(code, payload) {
+        return this.request(`/api/games/${code}/chat`, 'POST', payload);
+      },
+      botTurn(code) {
+        return this.request(`/api/games/${code}/bot-turn`, 'POST');
+      },
     };
 
     const renderPill = (text, type = '') => `<span class="pill ${type}">${text}</span>`;
@@ -705,13 +830,15 @@
       const filled = players.map((player) => {
         const isHost = player.user_id === hostId;
         const isMe = player.user_id === state.currentUserId;
+        const isBot = player.is_bot;
+        const alive = player.alive !== false;
         const initials = player.name ? player.name.slice(0, 2).toUpperCase() : '??';
         return `
-          <div class="player-card ${isHost ? 'host' : ''} ${isMe ? 'me' : ''}">
+          <div class="player-card ${isHost ? 'host' : ''} ${isMe ? 'me' : ''}" style="opacity:${alive ? 1 : 0.5};">
             <div class="avatar">${isHost ? '👑' : ''}${initials}</div>
             <div>
-              <div class="name">${player.name || 'Без имени'} ${isMe ? '(Вы)' : ''} ${isHost ? '👑' : ''}</div>
-              <div class="label">ID: ${player.user_id}</div>
+              <div class="name">${player.name || 'Без имени'} ${isMe ? '(Вы)' : ''} ${isHost ? '👑' : ''} ${isBot ? '<span class="badge-bot">BOT</span>' : ''}</div>
+              <div class="label">${alive ? 'В игре' : 'Выбыл'} · ID: ${player.user_id}</div>
             </div>
           </div>
         `;
@@ -722,6 +849,16 @@
       );
 
       return `<div class="players-list">${[...filled, ...placeholders].join('')}</div>`;
+    };
+
+    const startTooltip = (data) => {
+      if (data.host_id !== state.currentUserId) return 'Только ведущий может начать игру';
+      if (data.players.length < 4) return 'Нужно минимум 4 игрока';
+      return '';
+    };
+
+    const shouldDisableStart = (data) => {
+      return data.host_id !== state.currentUserId || data.players.length < 4;
     };
 
     const renderLobby = (data) => {
@@ -770,83 +907,128 @@
       };
     };
 
-    const startTooltip = (data) => {
-      if (data.host_id !== state.currentUserId) return 'Только ведущий может начать игру';
-      if (data.players.length < 4) return 'Нужно минимум 4 игрока';
-      return '';
+    const getPhaseLabel = (phase) => {
+      switch (phase) {
+        case 'day':
+          return 'День';
+        case 'night_mafia':
+          return 'Ночь · ход мафии';
+        case 'night_detective':
+          return 'Ночь · ход детектива';
+        case 'night_doctor':
+          return 'Ночь · ход доктора';
+        default:
+          return 'Лобби';
+      }
     };
 
-    const shouldDisableStart = (data) => {
-      return data.host_id !== state.currentUserId || data.players.length < 4;
+    const getPhaseDescription = (phase) => {
+      switch (phase) {
+        case 'day':
+          return 'Обсуждение, общение и голосование.';
+        case 'night_mafia':
+          return 'Мафия выбирает цель для убийства.';
+        case 'night_detective':
+          return 'Детектив проверяет одного игрока.';
+        case 'night_doctor':
+          return 'Доктор пытается спасти игрока.';
+        default:
+          return 'Ожидаем начала игры';
+      }
     };
 
-    const renderGameScreen = () => {
-      if (!state.gameStarted || !state.lastGameData) {
-        showPreGameSectionView();
-        gameArea.innerHTML = '<div class="muted">Игра появится после запуска.</div>';
-        phaseIndicator.textContent = 'Фаза: Лобби';
-        return;
+    const renderEvents = (events = [], players = []) => {
+      if (!events.length) return '<div class="muted">Событий пока нет.</div>';
+      const findName = (id) => players.find((p) => p.user_id === id)?.name || `Игрок ${id}`;
+      return events
+        .map((ev) => {
+          if (ev.type === 'killed') return `<div class="event-entry danger">Ночью убит игрок ${findName(ev.user_id)}.</div>`;
+          if (ev.type === 'healed') return `<div class="event-entry success">Доктор спас игрока ${findName(ev.user_id)}.</div>`;
+          if (ev.type === 'checked') return `<div class="event-entry">Детектив проверил ${findName(ev.user_id)}.</div>`;
+          return `<div class="event-entry">${ev.message || 'Произошло событие.'}</div>`;
+        })
+        .join('');
+    };
+
+    const isMyNightTurn = () => {
+      const map = {
+        'Мафия': 'night_mafia',
+        'Детектив': 'night_detective',
+        'Доктор': 'night_doctor',
+      };
+      return map[state.currentRole] === state.currentPhase && state.currentActorId === state.currentUserId;
+    };
+
+    const getAlivePlayers = (players) => players.filter((p) => p.alive !== false);
+
+    const renderActionPanel = (players) => {
+      const alivePlayers = getAlivePlayers(players);
+      const voteButton = '<button type="button" id="voteButton">Голосовать против игрока…</button>';
+
+      if (state.currentPhase === 'day') {
+        return `
+          <div class="action-card">
+            <h4>Действия днем</h4>
+            <p class="muted">Все общаются в чате и готовятся к голосованию.</p>
+            ${voteButton}
+          </div>
+        `;
       }
 
-      showGameSectionView();
-
-      const roleName = state.currentRole || 'Неизвестно';
-      const roleMeta = roleDescriptions[roleName] || { color: '#f1f5f9', desc: 'Роль не определена.' };
-      const players = state.lastGameData.players || [];
-      const hostId = state.lastGameData.host_id;
-      const phaseLabel = state.currentPhase === 'day' ? 'День' : 'Ночь';
-      phaseIndicator.textContent = `Фаза: ${state.currentPhase === 'lobby' ? 'Лобби' : phaseLabel}`;
-
-      gameArea.innerHTML = `
-        <div class="game-layout">
-          <div class="role-card" style="border-color:${roleMeta.color}; box-shadow: 0 10px 30px ${roleMeta.color}33;">
-            <div class="flex-row" style="justify-content: space-between;">
-              <div class="phase-badge">Раунд ${state.currentRound}</div>
-              <div class="phase-toggle">
-                <button type="button" class="${state.currentPhase === 'day' ? 'active' : ''}" data-phase="day">День</button>
-                <button type="button" class="${state.currentPhase === 'night' ? 'active' : ''}" data-phase="night">Ночь</button>
-              </div>
-            </div>
-            <div class="role-name" style="color:${roleMeta.color}">${roleName}</div>
-            <div class="role-desc">${roleMeta.desc}</div>
-          </div>
-          <div class="players-panel">
-            <div class="section-title">
-              <div>Игроки</div>
-              <div class="pill">Ход: ${phaseLabel}</div>
-            </div>
-            ${renderPlayersList(players, hostId, state.lastGameData.slots || players.length)}
-          </div>
-        </div>
-        <div class="actions" style="margin-top:14px;">
-          <button type="button" id="voteButton">Голосовать против игрока…</button>
-          <button type="button" id="nextRoundButton">Следующий раунд</button>
+      const waitingBlock = `
+        <div class="action-card">
+          <h4>Ночная тишина</h4>
+          <p class="muted">Ожидайте решения роли, которая сейчас ходит.</p>
         </div>
       `;
 
-      gameArea.querySelectorAll('.phase-toggle button').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          state.currentPhase = btn.dataset.phase;
-          renderGameScreen();
-        });
-      });
+      const targetButtons = alivePlayers
+        .map((p) => `<button type="button" class="action-target" data-id="${p.user_id}">${p.name} ${p.user_id === state.currentUserId ? '(Вы)' : ''}</button>`)
+        .join('');
 
-      document.getElementById('voteButton').onclick = () => openVoteModal(players);
-      document.getElementById('nextRoundButton').onclick = () => {
-        state.currentRound += 1;
-        state.currentPhase = state.currentPhase === 'day' ? 'night' : 'day';
-        renderGameScreen();
-      };
+      const actionBlock = (title, desc, actionKey) => `
+        <div class="action-card">
+          <h4>${title}</h4>
+          <p class="muted">${desc}</p>
+          ${state.hasActedThisPhase ? '<div class="pill">Действие отправлено. Ждем фазу.</div>' : targetButtons}
+          ${state.hasActedThisPhase ? '' : `<div class="small-muted">Выберите игрока и действие отправится сразу.</div>`}
+          <input type="hidden" id="currentActionKey" value="${actionKey}" />
+        </div>
+      `;
+
+      if (!isMyNightTurn()) return waitingBlock;
+
+      if (state.currentPhase === 'night_mafia') return actionBlock('Ваш ход: мафия', 'Выберите цель для убийства.', 'kill');
+      if (state.currentPhase === 'night_detective') return actionBlock('Ваш ход: детектив', 'Проверьте выбранного игрока.', 'check');
+      if (state.currentPhase === 'night_doctor') return actionBlock('Ваш ход: доктор', 'Выберите, кого лечить (можно себя).', 'heal');
+
+      return waitingBlock;
+    };
+
+    const renderChat = (messages) => {
+      const chatBox = document.getElementById('chatMessages');
+      if (!chatBox) return;
+      if (!messages.length) {
+        chatBox.innerHTML = '<div class="muted">Пока никто не писал.</div>';
+        return;
+      }
+      chatBox.innerHTML = messages
+        .map((m) => `<div class="chat-message"><div class="name">${m.name || 'Неизвестно'} ${m.is_bot ? '<span class="badge-bot">BOT</span>' : ''}</div><div class="text">${m.text}</div><div class="meta">${new Date(m.ts || Date.now()).toLocaleTimeString()}</div></div>`)
+        .join('');
+      chatBox.scrollTop = chatBox.scrollHeight;
     };
 
     const openVoteModal = (players) => {
-      voteList.innerHTML = players
-        .map((p) => `<button type="button" style="width:100%;" class="vote-choice" data-id="${p.user_id}">${p.name} ${p.user_id === state.currentUserId ? '(Вы)' : ''}</button>`)
+      const alive = getAlivePlayers(players);
+      voteList.innerHTML = alive
+        .map(
+          (p) => `<button type="button" style="width:100%;" class="vote-choice" data-id="${p.user_id}">${p.name} ${p.user_id === state.currentUserId ? '(Вы)' : ''}</button>`
+        )
         .join('');
       voteModal.style.display = 'flex';
       voteList.querySelectorAll('.vote-choice').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          showToast(`Вы выбрали: ${btn.textContent}`, 'success');
+        btn.addEventListener('click', async () => {
+          await sendAction('vote', Number(btn.dataset.id));
           voteModal.style.display = 'none';
         });
       });
@@ -860,10 +1042,147 @@
       if (e.target === voteModal) voteModal.style.display = 'none';
     });
 
+    const showOverlay = (phaseText, message) => {
+      overlayPhase.textContent = phaseText;
+      overlayMessage.textContent = message;
+      phaseOverlay.classList.add('active');
+    };
+
+    const hideOverlay = () => phaseOverlay.classList.remove('active');
+
+    const renderGameScreen = () => {
+      if (!state.gameStarted || !state.lastGameData) {
+        showPreGameSectionView();
+        gameArea.innerHTML = '<div class="muted">Игра появится после запуска.</div>';
+        phaseIndicator.textContent = 'Фаза: Лобби';
+        hideOverlay();
+        return;
+      }
+
+      showGameSectionView();
+
+      const roleName = state.currentRole || 'Неизвестно';
+      const roleMeta = roleDescriptions[roleName] || { color: '#f1f5f9', desc: 'Роль не определена.' };
+      const players = state.lastGameData.players || [];
+      const hostId = state.lastGameData.host_id;
+      const phaseLabel = getPhaseLabel(state.currentPhase);
+      phaseIndicator.textContent = `Фаза: ${phaseLabel}`;
+
+      const eventsBlock = renderEvents(state.lastEvents, players);
+
+      gameArea.innerHTML = `
+        <div class="game-layout">
+          <div class="stack">
+            <div class="role-card" style="border-color:${roleMeta.color}; box-shadow: 0 10px 30px ${roleMeta.color}33;">
+              <div class="flex-row" style="justify-content: space-between;">
+                <div class="phase-badge">Раунд ${state.currentRound}</div>
+                <div class="pill" style="background:${roleMeta.color}22; border-color:${roleMeta.color}55; color:${roleMeta.color};">Ваша роль</div>
+              </div>
+              <div class="role-name" style="color:${roleMeta.color}">${roleName}</div>
+              <div class="role-desc">${roleMeta.desc}</div>
+              <div class="small-muted" style="margin-top:8px;">Эту информацию видите только вы.</div>
+            </div>
+            <div class="action-card">
+              <h4>Статус раунда</h4>
+              <div class="pill">${phaseLabel}</div>
+              <p class="muted">${getPhaseDescription(state.currentPhase)}</p>
+              <div class="small-muted">Таймер будет добавлен сервером — оставлено место.</div>
+            </div>
+            <div id="dynamicActions">${renderActionPanel(players)}</div>
+            <div class="action-card">
+              <h4>События ночи</h4>
+              <div id="eventLog" class="event-log">${eventsBlock}</div>
+            </div>
+          </div>
+          <div class="stack">
+            <div class="players-panel">
+              <div class="section-title">
+                <div>Игроки</div>
+                <div class="pill">Ход: ${phaseLabel}</div>
+              </div>
+              ${renderPlayersList(players, hostId, state.lastGameData.slots || players.length)}
+              ${hostId === state.currentUserId ? '<button type="button" id="botTurnBtn" style="width:auto;">Сделать ход ботами</button>' : ''}
+            </div>
+            <div class="chat-panel">
+              <div class="section-title"><div>Игровой чат</div></div>
+              <div id="chatMessages" class="chat-messages"></div>
+              <form id="chatForm" class="flex-row" style="margin-top:8px;">
+                <input id="chatInput" placeholder="Напишите сообщение..." />
+                <button type="submit" style="width:auto;">Отправить</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      `;
+
+      renderChat(state.chatMessages);
+
+      const voteBtn = document.getElementById('voteButton');
+      if (voteBtn) voteBtn.onclick = () => openVoteModal(players);
+
+      const targetButtons = gameArea.querySelectorAll('.action-target');
+      targetButtons.forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          if (state.hasActedThisPhase || state.actionInFlight) return;
+          const actionKey = document.getElementById('currentActionKey')?.value;
+          await sendAction(actionKey, Number(btn.dataset.id));
+        });
+      });
+
+      const chatForm = document.getElementById('chatForm');
+      if (chatForm) {
+        chatForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const text = chatForm.querySelector('#chatInput').value.trim();
+          if (!text) return;
+          chatForm.querySelector('button').disabled = true;
+          try {
+            await apiClient.sendChatMessage(state.currentGameCode, {
+              user_id: state.currentUserId,
+              name: state.currentUserName,
+              text,
+            });
+            chatForm.reset();
+            await fetchChat();
+          } catch (err) {
+            showToast(err.message, 'error');
+          } finally {
+            chatForm.querySelector('button').disabled = false;
+          }
+        });
+      }
+
+      const botTurnBtn = document.getElementById('botTurnBtn');
+      if (botTurnBtn) {
+        botTurnBtn.addEventListener('click', async () => {
+          botTurnBtn.disabled = true;
+          try {
+            await apiClient.botTurn(state.currentGameCode);
+            await refreshGame(state.currentGameCode);
+          } catch (err) {
+            showToast(err.message, 'error');
+          } finally {
+            botTurnBtn.disabled = false;
+          }
+        });
+      }
+
+      if (state.currentPhase.startsWith('night')) {
+        if (isMyNightTurn()) {
+          hideOverlay();
+        } else {
+          showOverlay('Ночь', 'Подождите, пока роль завершит действие.');
+        }
+      } else {
+        hideOverlay();
+      }
+    };
+
     const refreshGame = async (code) => {
       if (!code) return;
       try {
         const data = await apiClient.getGame(code);
+        const prevPhase = state.currentPhase;
         state.lastGameData = data;
         state.currentGameCode = data.code;
         if (data.started) {
@@ -873,8 +1192,12 @@
             const myRole = assignments[String(state.currentUserId)] || assignments[state.currentUserId];
             state.currentRole = myRole || state.currentRole || null;
           }
-          if (state.currentPhase === 'lobby') {
-            state.currentPhase = 'day';
+          state.currentPhase = data.phase || state.currentPhase || 'day';
+          state.currentRound = data.round || 1;
+          state.currentActorId = data.current_actor_id || null;
+          state.lastEvents = data.events || state.lastEvents || [];
+          if (prevPhase !== state.currentPhase) {
+            state.hasActedThisPhase = false;
           }
           renderGameScreen();
         } else {
@@ -882,12 +1205,43 @@
           state.currentRole = null;
           state.currentPhase = 'lobby';
           state.currentRound = 1;
+          state.currentActorId = null;
           renderLobby(data);
           renderGameScreen();
         }
       } catch (err) {
         lobbyBlock.innerHTML = renderPill(err.message, 'warning');
         showToast(`${err.message} Проверьте адрес API или соединение.`, 'error');
+      }
+    };
+
+    const fetchChat = async () => {
+      if (!state.currentGameCode) return;
+      try {
+        const chat = await apiClient.fetchChat(state.currentGameCode);
+        state.chatMessages = chat;
+        renderChat(chat);
+      } catch (err) {
+        // тихо игнорируем, чтобы не спамить тостами
+      }
+    };
+
+    const sendAction = async (action, targetId) => {
+      if (!state.currentGameCode) return;
+      state.actionInFlight = true;
+      try {
+        await apiClient.sendAction(state.currentGameCode, {
+          user_id: state.currentUserId,
+          action,
+          target_id: targetId,
+        });
+        state.hasActedThisPhase = true;
+        showToast('Действие отправлено. Ждем итог фазы.', 'success');
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        state.actionInFlight = false;
+        renderGameScreen();
       }
     };
 
@@ -907,8 +1261,9 @@
         const myRole = res.assignments?.[String(state.currentUserId)] || res.assignments?.[state.currentUserId];
         state.currentRole = myRole || null;
         state.gameStarted = true;
-        state.currentPhase = 'day';
-        state.currentRound = 1;
+        state.currentPhase = res.phase || 'day';
+        state.currentRound = res.round || 1;
+        state.lastEvents = res.events || [];
         showToast('Игра началась! Роли распределены.', 'success');
         await refreshGame(code);
       } catch (err) {
@@ -932,6 +1287,7 @@
         codeInput.value = data.code;
         hostResult.innerHTML = `${renderPill('Готово', 'success')} Код вашей комнаты: <code>${data.code}</code>`;
         renderLobby(data);
+        startPolling();
         showToast('Комната создана', 'success');
       } catch (err) {
         hostResult.innerHTML = renderPill(err.message, 'warning');
@@ -995,11 +1351,19 @@
         joinResult.innerHTML = `${renderPill('Готово', 'success')} Участников: ${data.players.length}`;
         state.currentGameCode = code;
         await refreshGame(code);
+        startPolling();
         showToast('Вы в комнате', 'success');
       } catch (err) {
         joinResult.innerHTML = renderPill(err.message, 'warning');
         showToast(`${err.message} Проверьте адрес API или соединение.`, 'error');
       }
+    };
+
+    const startPolling = () => {
+      if (state.pollingInterval) clearInterval(state.pollingInterval);
+      if (state.chatInterval) clearInterval(state.chatInterval);
+      state.pollingInterval = setInterval(() => refreshGame(state.currentGameCode), 2500);
+      state.chatInterval = setInterval(fetchChat, 2500);
     };
 
     hostForm.addEventListener('submit', handleHostCreate);
